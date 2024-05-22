@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_cors import CORS
 import mysql.connector
 import os
@@ -78,6 +78,10 @@ def get_productos():
         })
 
     return jsonify(productos_list)
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 # Asegúrate de incluir esta condición para que solo se ejecute en el entorno local
 if __name__ == '__main__':
