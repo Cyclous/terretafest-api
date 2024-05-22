@@ -1,6 +1,7 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 import mysql.connector
+import os
 
 app = Flask(__name__)
 CORS(app)  # Habilita CORS para todas las rutas
@@ -78,5 +79,9 @@ def get_productos():
 
     return jsonify(productos_list)
 
+# Asegúrate de incluir esta condición para que solo se ejecute en el entorno local
 if __name__ == '__main__':
-    app.run(host='localhost', port=5000)
+    # Para Heroku, usa el puerto proporcionado por la variable de entorno PORT
+    port = int(os.environ.get("PORT", 5000))
+    # Quita el parámetro host para que Flask detecte automáticamente el host
+    app.run(port=port)
