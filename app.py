@@ -1,21 +1,29 @@
+import os
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import smtplib
-
 import mysql.connector
+
+def cargar_variables_entorno():
+    dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+    if os.path.exists(dotenv_path):
+        load_dotenv(dotenv_path)
 
 def crear_app():
     app = Flask(__name__)
     CORS(app)  # Habilita CORS para todas las rutas
 
-    # Configuración de la base de datos (reemplaza con tus propios datos)
+    cargar_variables_entorno()
+
+    # Configuración de la base de datos
     db_config = {
-        'host': 'localhost',
-        'user': 'root',
-        'password': '',
-        'database': 'terretaFest'
+        'host': os.getenv('DB_HOST'),
+        'user': os.getenv('DB_USER'),
+        'password': os.getenv('DB_PASSWORD'),
+        'database': os.getenv('DB_DATABASE')
     }
 
     # Conexión a la base de datos
@@ -132,7 +140,6 @@ def crear_app():
         msg['From'] = smtp_user  # El remitente es info.terretafest
         msg['To'] = 'terretafestt@gmail.com'  # El destinatario es tu dirección de correo de administración
         msg['Subject'] = asunto
-
         # Contenido del correo con estilo
         body = f"""
         <html>
@@ -165,4 +172,5 @@ def crear_app():
 
 if __name__ == '__main__':
     app = crear_app()
-    app.run(host='0.0.0.0')
+    app.run()
+
