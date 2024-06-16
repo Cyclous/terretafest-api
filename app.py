@@ -1,26 +1,22 @@
 import os
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_cors import CORS
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import smtplib
 import mysql.connector
+from dotenv import load_dotenv
+
+load_dotenv()  # Cargar variables de entorno desde un archivo .env
 
 app = Flask(__name__)
 CORS(app)  # Habilita CORS para todas las rutas
 
-# Definición de variables de entorno
-db_host = 'localhost'
-db_user = 'root'
-db_password = 'Utx$abeCCrUDnJC)'
-db_database = 'terretaFest'
-
-# Configuración de la base de datos
 db_config = {
-    'host': db_host,
-    'user': db_user,
-    'password': db_password,
-    'database': db_database
+    'host': 'localhost',  # Cambiar si es necesario
+    'user': 'root',       # Cambiar si es necesario
+    'password': 'admin',  # Cambiar si es necesario
+    'database': 'terretaFest'
 }
 
 # Conexión a la base de datos
@@ -100,15 +96,15 @@ def get_eventos():
     for evento in eventos:
         eventos_list.append({
             'id': evento[0],
-            'Nombre_del_Evento': evento[1],
-            'Ubicacion': evento[2],
-            'Grupo_de_Musica': evento[3],
-            'N_de_Entradas': evento[4],
-            'Precio': evento[5],
-            'Imagen': evento[6],
-            'Fecha': evento[7],
-            'Informacion': evento[8],
-            'Coordenadas': {
+            'nombreDelEvento': evento[1],
+            'ubicacion': evento[2],
+            'grupoDeMusica': evento[3],
+            'numeroDeEntradas': evento[4],
+            'precio': evento[5],
+            'imagen': evento[6],
+            'fecha': evento[7],
+            'informacion': evento[8],
+            'coordenadas': {
                 'latitud': evento[9],
                 'longitud': evento[10]
             }
@@ -116,6 +112,92 @@ def get_eventos():
 
     return jsonify(eventos_list)
 
+@app.route('/eventos/<int:evento_id>', methods=['DELETE'])
+def delete_evento(evento_id):
+    cursor = db_conn.cursor()
+
+    # Primero comprobamos si el evento existe
+    cursor.execute("SELECT * FROM eventos WHERE id = %s", (evento_id,))
+    evento = cursor.fetchone()
+
+    if evento is None:
+        # Si el evento no existe, retornamos un 404
+        cursor.close()
+        abort(404, description="Evento no encontrado")
+
+    # Si el evento existe, procedemos a eliminarlo
+    cursor.execute("DELETE FROM eventos WHERE id = %s", (evento_id,))
+    db_conn.commit()
+    cursor.close()
+
+    return '', 204
+
+@app.route('/eventos/<int:evento_id>', methods=['PUT'])
+def update_evento(evento_id):
+    data = request.json
+    nombre_del_evento = data.get('nombreDelEvento')
+    ubicacion = data.get('ubicacion')
+    grupo_de_musica = data.get('grupoDeMusica')
+    n_de_entradas = data.get('numeroDeEntradas')
+    precio = data.get('precio')
+    fecha = data.get('fecha')
+
+    if not all([nombre_del_evento, ubicacion, grupo_de_musica]):
+        abort(400, description="Faltan campos obligatorios")
+
+    cursor = db_conn.cursor()
+
+    cursor.execute("SELECT * FROM eventos WHERE id = %s", (evento_id,))
+    evento = cursor.fetchone()
+
+    if evento is None:
+        cursor.close()
+        abort(404, description="Evento no encontrado")
+
+    query = """
+    UPDATE eventos
+    SET nombreDelEvento = %s, ubicacion = %s, grupoDeMusica = %s, numeroDeEntradas = %s, precio = %s, fecha = %s
+    WHERE id = %s
+    """
+    cursor.execute(query, (nombre_del_evento, ubicacion, grupo_de_musica, n_de_entradas, precio, fecha, evento_id))
+    db_conn.commit()
+    cursor.close()
+
+    return jsonify({'message': 'Evento actualizado exitosamente'})
+
+@app.route('/eventos', methods=['POST'])
+def add_evento():
+    data = request.json  # Obtener datos JSON del cuerpo de la solicitud
+
+    # Extraer los campos del objeto Event
+    nombre_del_evento = data.get('nombreDelEvento')
+    ubicacion = data.get('ubicacion')
+    grupo_de_musica = data.get('grupoDeMusica')
+    n_de_entradas = data.get('numeroDeEntradas')
+    precio = data.get('precio')
+    imagen = 'https://t3.ftcdn.net/jpg/05/03/58/28/360_F_503582859_7SJMOrd2Xf5ujdBjrBCam7ngr9wc84vH.jpg'
+    fecha = data.get('fecha')
+    informacion = data.get('informacion')
+    latitud = data.get('latitud')
+    longitud = data.get('longitud')
+
+    # Verificar que los campos obligatorios están presentes
+    if not all([nombre_del_evento, ubicacion, grupo_de_musica]):
+        abort(400, description="Faltan campos obligatorios")
+
+    
+    cursor = db_conn.cursor()
+    query = """
+    INSERT INTO eventos (nombreDelEvento, ubicacion, grupoDeMusica, numeroDeEntradas, precio, imagen, fecha, informacion, latitud, longitud)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    cursor.execute(query, (nombre_del_evento, ubicacion, grupo_de_musica, n_de_entradas, precio, imagen, fecha, informacion, latitud, longitud))
+    db_conn.commit()
+    cursor.close()
+    
+
+    return jsonify({'message': 'Evento creado exitosamente'}), 201
+    
 @app.route('/enviar-correo', methods=['POST'])
 def enviar_correo():
     data = request.json  # Obtener datos JSON del cuerpo de la solicitud
@@ -125,10 +207,10 @@ def enviar_correo():
     mensaje = data.get('mensaje')
 
     # Configuración del servidor SMTP (reemplaza con tus propios datos)
-    smtp_server = 'smtp.gmail.com'
-    smtp_port = 587
-    smtp_user = 'info.terretafest@gmail.com'  # Tu dirección de correo electrónico
-    smtp_password = 'sdqi tlqp rrqr wqyu'  # Tu contraseña de correo electrónico
+    smtp_server = os.getenv('SMTP_SERVER')
+    smtp_port = int(os.getenv('SMTP_PORT'))
+    smtp_user = os.getenv('SMTP_USER')  # Tu dirección de correo electrónico
+    smtp_password = os.getenv('SMTP_PASSWORD')  # Tu contraseña de correo electrónico
 
     # Construir el mensaje de correo electrónico
     msg = MIMEMultipart()
@@ -163,6 +245,16 @@ def enviar_correo():
     server.quit()
 
     return jsonify({'message': 'Correu enviat amb èxit'})
+
+# Ruta para servir archivos estáticos desde el directorio pki-validation
+@app.route('/.well-known/pki-validation/<filename>')
+def serve_validation_file(filename):
+    directory = os.path.join(app.root_path, 'well-known', 'pki-validation')
+    return send_from_directory(directory, filename)
+
+@app.route('/health')
+def health_check():
+    return 'Healthy', 200
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
